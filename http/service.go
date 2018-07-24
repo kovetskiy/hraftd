@@ -4,11 +4,15 @@ package httpd
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // Store is the interface Raft-backed key-value stores must implement.
@@ -151,10 +155,34 @@ func (s *Service) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		for k, v := range m {
 			if err := s.store.Set(k, v); err != nil {
+				fmt.Fprintf(os.Stderr, "XXXXXX service.go:153 err: %s\n", err)
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 		}
+
+	case "PUT":
+		amount := 10000
+		keys := []string{}
+		for i := 0; i < amount; i++ {
+			keys = append(keys, strconv.Itoa(i))
+		}
+
+		started := time.Now()
+		for i := 0; i < amount; i++ {
+			if i%1000 == 0 {
+				fmt.Fprintf(os.Stderr, "XXXXXX service.go:167 i: %#v\n", i)
+			}
+			err := s.store.Set(keys[i], "test-value")
+			if err != nil {
+				log.Println(err)
+				return
+			}
+		}
+
+		duration := time.Since(started)
+
+		fmt.Printf("%v for %v: %.2f sets per second\n", amount, duration, float64(amount)/duration.Seconds())
 
 	case "DELETE":
 		k := getKey()
