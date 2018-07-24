@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"time"
@@ -168,9 +169,19 @@ func (s *Service) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 			keys = append(keys, strconv.Itoa(i))
 		}
 
+		profileFilename := os.Getenv("PROFILE")
+		if profileFilename != "" {
+			profileFile, err := os.Create(profileFilename)
+			if err != nil {
+				panic(err)
+			}
+			defer profileFile.Close()
+			pprof.StartCPUProfile(profileFile)
+		}
+
 		started := time.Now()
 		for i := 0; i < amount; i++ {
-			if i%1000 == 0 {
+			if i%100 == 0 {
 				fmt.Fprintf(os.Stderr, "XXXXXX service.go:167 i: %#v\n", i)
 			}
 			err := s.store.Set(keys[i], "test-value")
@@ -181,6 +192,7 @@ func (s *Service) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		}
 
 		duration := time.Since(started)
+		pprof.StopCPUProfile()
 
 		fmt.Printf("%v for %v: %.2f sets per second\n", amount, duration, float64(amount)/duration.Seconds())
 
